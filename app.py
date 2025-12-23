@@ -534,7 +534,8 @@ with col_manual:
     }
     </style>
     <div style="text-align: right;">
-        <a class="manual-button" href="https://sharonlimyj-jpg.github.io/streamlit-dashboard/dashboard_manual.html" target="_blank">
+        <a class="manual-button" href="https://github.com/sharonlimyj-jpg/streamlit-dashboard/blob/7bad8a8a317cb218473338372cb6d148de4c11ce/dashboard_manual.html" 
+target="_blank">
             📖 매뉴얼
         </a>
     </div>
