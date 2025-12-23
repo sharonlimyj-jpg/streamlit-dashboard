@@ -10,7 +10,7 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
     """파일을 로드하고 컬럼명을 정리하여 반환"""
     try:
         if uploaded_file is None:
-            st.warning(f"⚠️ {file_label}이 업로드되지 않았습니다.")
+            st.warning(f⚠️ {file_label}이 업로드되지 않았습니다.")
             return pd.DataFrame()
         
         # 파일 이름 확인
@@ -726,7 +726,7 @@ else:
 
 
 # ========================================
-# 파일 2 분석 (약정기간/리스구분/비용구분)
+# 파일 2 분석 (약정기간/리스구분/비용구분) - 수정된 버전
 # ========================================
 if uploaded_file2 is not None:
     st.markdown("---")
@@ -811,135 +811,128 @@ if uploaded_file2 is not None:
                 key="product1_f2"
             )
             
+            # *** 1. 제품명 검색 필터 추가 ***
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("🔎 제품명 검색")
+            
+            # 검색어 입력
+            search_query = st.sidebar.text_input(
+                "제품명 검색 (일부 입력)",
+                "",
+                key="product_search",
+                help="제품명의 일부를 입력하면 포함된 제품들을 선택할 수 있습니다."
+            )
+            
+            # 검색 결과에 따른 제품명 필터링
+            if search_query:
+                matching_products = sorted([p for p in df2['제품명'].unique() if search_query.lower() in str(p).lower()])
+                if matching_products:
+                    st.sidebar.success(f"🔍 {len(matching_products)}개 제품 발견")
+                    selected_products_f2 = st.sidebar.multiselect(
+                        "제품명 선택",
+                        matching_products,
+                        default=matching_products,
+                        key="selected_products_f2"
+                    )
+                else:
+                    st.sidebar.warning("⚠️ 일치하는 제품이 없습니다.")
+                    selected_products_f2 = []
+            else:
+                # 검색어가 없으면 전체 선택
+                selected_products_f2 = df2['제품명'].unique().tolist()
+            
             # 데이터 필터링
             filtered_df2 = df2[
                 (df2['연도'] == selected_year_f2) &
                 (df2['월_숫자'].isin(selected_months_f2)) &
-                (df2['제품계층구조1'].isin(selected_product1_f2))
+                (df2['제품계층구조1'].isin(selected_product1_f2)) &
+                (df2['제품명'].isin(selected_products_f2))
             ].copy()
             
             if filtered_df2.empty:
                 st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
             else:
-                # ========== 약정기간 분석 ==========
-                st.markdown("## ⏱️ 약정기간별 분석")
+                # *** 2. 약정기간별 분석과 리스구분별 분석 섹션 삭제 ***
+                # *** 3. 금융리스 x 약정기간 크로스 분석 추가 ***
                 
-                col1, col2 = st.columns(2)
+                st.markdown("## 📊 리스구분 × 약정기간 크로스 분석")
+                
+                col1, col2 = st.columns([1.2, 0.8])
                 
                 with col1:
-                    # 약정기간별 실적
-                    commitment_total = filtered_df2.groupby('약정기간', as_index=False)['총렌탈(건)'].sum()
-                    commitment_total = commitment_total[commitment_total['총렌탈(건)'] > 0]
+                    # 월별 리스구분 x 약정기간 크로스 데이터
+                    cross_monthly = filtered_df2.groupby(['월_숫자', '리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
+                    cross_monthly = cross_monthly[cross_monthly['총렌탈(건)'] > 0]
                     
-                    if not commitment_total.empty:
-                        commitment_total['비중(%)'] = (commitment_total['총렌탈(건)'] / commitment_total['총렌탈(건)'].sum() * 100).round(1)
-                        commitment_total = commitment_total.sort_values('총렌탈(건)', ascending=False)
+                    if not cross_monthly.empty:
+                        # 리스구분+약정기간 조합 컬럼 생성
+                        cross_monthly['구분'] = cross_monthly['리스구분'] + ' - ' + cross_monthly['약정기간']
                         
-                        fig8 = px.pie(
-                            commitment_total,
-                            values='총렌탈(건)',
-                            names='약정기간',
-                            title="약정기간별 실적 비중",
-                            hole=0.4,
-                            height=400
-                        )
-                        fig8.update_traces(
-                            textposition='inside',
-                            textinfo='percent+label',
-                            hovertemplate='<b>%{label}</b><br>' +
-                                          '건수: %{value:,}건<br>' +
-                                          '비중: %{percent}<br>' +
-                                          '<extra></extra>'
-                        )
-                        st.plotly_chart(fig8, use_container_width=True)
-                    else:
-                        st.warning("약정기간 데이터가 없습니다.")
-                
-                with col2:
-                    # 약정기간별 월별 추이
-                    commitment_monthly = filtered_df2.groupby(['월_숫자', '약정기간'], as_index=False)['총렌탈(건)'].sum()
-                    commitment_monthly = commitment_monthly[commitment_monthly['총렌탈(건)'] > 0]
-                    
-                    if not commitment_monthly.empty:
-                        fig9 = px.line(
-                            commitment_monthly,
+                        fig_cross = px.bar(
+                            cross_monthly,
                             x='월_숫자',
                             y='총렌탈(건)',
-                            color='약정기간',
-                            title="약정기간별 월별 추이",
-                            markers=True,
-                            height=400
+                            color='구분',
+                            title="월별 리스구분 × 약정기간 실적",
+                            labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수'},
+                            text='총렌탈(건)',
+                            height=500,
+                            barmode='group'
                         )
-                        fig9.update_layout(
+                        fig_cross.update_traces(
+                            texttemplate='%{text:,.0f}',
+                            textposition='outside'
+                        )
+                        fig_cross.update_layout(
                             xaxis_type='category',
                             xaxis_title="월",
                             yaxis_title="총렌탈 건수"
                         )
-                        st.plotly_chart(fig9, use_container_width=True)
+                        st.plotly_chart(fig_cross, use_container_width=True)
                     else:
-                        st.warning("약정기간 데이터가 없습니다.")
-                
-                st.markdown("---")
-                
-                # ========== 리스구분 분석 ==========
-                st.markdown("## 🏷️ 리스구분별 분석")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # 리스구분별 실적
-                    lease_total = filtered_df2.groupby('리스구분', as_index=False)['총렌탈(건)'].sum()
-                    lease_total = lease_total[lease_total['총렌탈(건)'] > 0]
-                    
-                    if not lease_total.empty:
-                        lease_total['비중(%)'] = (lease_total['총렌탈(건)'] / lease_total['총렌탈(건)'].sum() * 100).round(1)
-                        lease_total = lease_total.sort_values('총렌탈(건)', ascending=True)
-                        
-                        fig10 = px.bar(
-                            lease_total,
-                            x='총렌탈(건)',
-                            y='리스구분',
-                            orientation='h',
-                            title="리스구분별 실적",
-                            text='총렌탈(건)',
-                            height=400
-                        )
-                        fig10.update_traces(
-                            texttemplate='%{text:,.0f}',
-                            textposition='outside'
-                        )
-                        st.plotly_chart(fig10, use_container_width=True)
-                    else:
-                        st.warning("리스구분 데이터가 없습니다.")
+                        st.warning("크로스 데이터가 없습니다.")
                 
                 with col2:
-                    # 리스구분별 제품계층구조1 분포
-                    lease_product = filtered_df2.groupby(['리스구분', '제품계층구조1'], as_index=False)['총렌탈(건)'].sum()
-                    lease_product = lease_product[lease_product['총렌탈(건)'] > 0]
+                    # 크로스 테이블 (리스구분 x 약정기간)
+                    cross_table = filtered_df2.groupby(['리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
                     
-                    if not lease_product.empty:
-                        fig11 = px.bar(
-                            lease_product,
-                            x='리스구분',
-                            y='총렌탈(건)',
-                            color='제품계층구조1',
-                            title="리스구분별 제품군 분포",
-                            height=400,
-                            barmode='stack'
+                    if not cross_table.empty:
+                        # 피벗 테이블 생성
+                        pivot_table = cross_table.pivot_table(
+                            index='리스구분',
+                            columns='약정기간',
+                            values='총렌탈(건)',
+                            fill_value=0,
+                            aggfunc='sum'
                         )
-                        st.plotly_chart(fig11, use_container_width=True)
+                        
+                        # 행 합계 추가
+                        pivot_table['행합계'] = pivot_table.sum(axis=1)
+                        
+                        # 열 합계 추가
+                        pivot_table.loc['열합계'] = pivot_table.sum()
+                        
+                        # 정수형으로 변환
+                        pivot_table = pivot_table.astype(int)
+                        
+                        st.markdown("#### 📋 리스구분 × 약정기간 집계표")
+                        st.dataframe(
+                            pivot_table.style.format("{:,}"),
+                            use_container_width=True,
+                            height=400
+                        )
                     else:
-                        st.warning("리스구분 데이터가 없습니다.")
+                        st.warning("크로스 테이블 데이터가 없습니다.")
                 
                 st.markdown("---")
                 
-                # ========== 비용구분 분석 ==========
+                # *** 4. 비용구분별 분석 수정 ***
                 st.markdown("## 💰 비용구분별 분석")
                 
-                col1, col2 = st.columns(2)
+                col1, col2 = st.columns([1, 1])
                 
                 with col1:
-                    # 비용구분별 실적
+                    # 비용구분별 실적 (원형 그래프)
                     cost_total = filtered_df2.groupby('비용구분', as_index=False)['총렌탈(건)'].sum()
                     cost_total = cost_total[cost_total['총렌탈(건)'] > 0]
                     
@@ -947,43 +940,47 @@ if uploaded_file2 is not None:
                         cost_total['비중(%)'] = (cost_total['총렌탈(건)'] / cost_total['총렌탈(건)'].sum() * 100).round(1)
                         cost_total = cost_total.sort_values('총렌탈(건)', ascending=False)
                         
-                        fig12 = px.pie(
+                        fig_cost = px.pie(
                             cost_total,
                             values='총렌탈(건)',
                             names='비용구분',
                             title="비용구분별 실적 비중",
                             hole=0.4,
-                            height=400
+                            height=500
                         )
-                        fig12.update_traces(
+                        fig_cost.update_traces(
                             textposition='inside',
                             textinfo='percent+label'
                         )
-                        st.plotly_chart(fig12, use_container_width=True)
+                        st.plotly_chart(fig_cost, use_container_width=True)
                     else:
                         st.warning("비용구분 데이터가 없습니다.")
                 
                 with col2:
-                    # 비용구분별 월별 추이
-                    cost_monthly = filtered_df2.groupby(['월_숫자', '비용구분'], as_index=False)['총렌탈(건)'].sum()
-                    cost_monthly = cost_monthly[cost_monthly['총렌탈(건)'] > 0]
-                    
-                    if not cost_monthly.empty:
-                        fig13 = px.line(
-                            cost_monthly,
-                            x='월_숫자',
-                            y='총렌탈(건)',
-                            color='비용구분',
-                            title="비용구분별 월별 추이",
-                            markers=True,
-                            height=400
+                    # 비용구분별 실적 테이블 (행합계, 열합계, 비중 포함)
+                    if not cost_total.empty:
+                        st.markdown("#### 📋 비용구분별 실적 비중표")
+                        
+                        # 테이블 생성
+                        cost_display = cost_total[['비용구분', '총렌탈(건)', '비중(%)']].copy()
+                        
+                        # 합계 행 추가
+                        total_row = pd.DataFrame({
+                            '비용구분': ['합계'],
+                            '총렌탈(건)': [cost_display['총렌탈(건)'].sum()],
+                            '비중(%)': [100.0]
+                        })
+                        cost_display = pd.concat([cost_display, total_row], ignore_index=True)
+                        
+                        # 스타일 적용
+                        st.dataframe(
+                            cost_display.style.format({
+                                '총렌탈(건)': '{:,.0f}',
+                                '비중(%)': '{:.1f}%'
+                            }),
+                            use_container_width=True,
+                            height=500
                         )
-                        fig13.update_layout(
-                            xaxis_type='category',
-                            xaxis_title="월",
-                            yaxis_title="총렌탈 건수"
-                        )
-                        st.plotly_chart(fig13, use_container_width=True)
                     else:
                         st.warning("비용구분 데이터가 없습니다.")
                 
