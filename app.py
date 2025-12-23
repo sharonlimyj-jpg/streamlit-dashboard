@@ -88,8 +88,39 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 타이틀
-st.title("📊 2025년 영업 실적 분석 대시보드")
+# 타이틀 및 매뉴얼 버튼
+col_title, col_manual = st.columns([6, 1])
+
+with col_title:
+    st.title("📊 2025년 영업 실적 분석 대시보드")
+
+with col_manual:
+    st.markdown("""
+    <div style="text-align: right; padding-top: 20px;">
+        <a href="https://www.genspark.ai/api/files/s/opEEXBRr" target="_blank" style="text-decoration: none;">
+            <button style="
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                padding: 10px 20px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+                margin: 4px 2px;
+                cursor: pointer;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                transition: all 0.3s ease;
+            "
+            onmouseover="this.style.backgroundColor='#45a049'; this.style.transform='scale(1.05)';"
+            onmouseout="this.style.backgroundColor='#4CAF50'; this.style.transform='scale(1)';">
+                📖 매뉴얼
+            </button>
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.markdown("---")
 
 # 기본 파일 경로 설정
