@@ -538,13 +538,11 @@ with col_manual:
     </div>
     <script>
         function openManual() {{
-            // GitHub Pages에서 매뉴얼 열기
-            window.open('https://sharonlimyj-jpg.github.io/streamlit-dashboard/dashboard_manual.html', 
+            // GitHub raw content에서 매뉴얼 열기
+            window.open('https://raw.githubusercontent.com/sharonlimyj-jpg/streamlit-dashboard/main/dashboard_manual.html', 
                        '_blank', 
                        'width=1200,height=800,scrollbars=yes,resizable=yes');
-        }}
-    </script>
-        }}
+          }}
     </script>
     """, unsafe_allow_html=True)
 
