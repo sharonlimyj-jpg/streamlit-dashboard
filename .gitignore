@@ -1,0 +1,45 @@
+# Python 관련
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 가상환경
+venv/
+env/
+ENV/
+.venv/
+
+# Streamlit 비밀 정보
+.streamlit/secrets.toml
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# 운영체제
+Thumbs.db
+.DS_Store
+
+# 로그 파일
+*.log
+
+# 대용량 데이터 파일 (필요시)
+*.csv
+*.xlsx
+*.db
+data/
+!data/sample.csv  # sample.csv는 포함
+
+# 임시 파일
+tmp/
+temp/
+*.tmp

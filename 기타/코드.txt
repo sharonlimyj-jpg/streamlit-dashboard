@@ -1,0 +1,934 @@
+from datetime import datetime
+
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+
+
+def load_file(uploaded_file):
+    """파일을 로드하고 DataFrame을 반환하는 함수"""
+    try:
+        if uploaded_file is None:
+            st.error("❌ 파일이 업로드되지 않았습니다.")
+            return pd.DataFrame()
+
+        # 파일 이름과 확장자 확인
+        file_name = uploaded_file.name
+        st.write(f"📁 업로드된 파일: **{file_name}**")
+
+        # 파일 포인터를 처음으로 이동
+        uploaded_file.seek(0)
+
+        # Excel 파일 처리
+        if file_name.endswith('.xlsx') or file_name.endswith('.xls'):
+            df = pd.read_excel(uploaded_file, engine='openpyxl')
+            st.success(f"✅ Excel 파일 로드 성공: {len(df)}행 × {len(df.columns)}열")
+
+        # CSV 파일 처리
+        elif file_name.endswith('.csv'):
+            try:
+                df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+                st.success(f"✅ CSV 파일 로드 성공: {len(df)}행 × {len(df.columns)}열")
+            except UnicodeDecodeError:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, encoding='cp949')
+                st.success(f"✅ CSV 파일 로드 성공 (cp949): {len(df)}행 × {len(df.columns)}열")
+        else:
+            st.error(f"❌ 지원하지 않는 파일 형식: {file_name}")
+            return pd.DataFrame()
+
+        # 로드 결과 확인
+        if df.empty:
+            st.warning("⚠️ 파일이 비어있습니다.")
+            return pd.DataFrame()
+
+        # 디버깅: 컬럼 확인
+        st.write("🔍 **로드된 컬럼 (처음 10개):**", df.columns.tolist()[:10])
+        st.write("🔍 **데이터 샘플:**")
+        st.dataframe(df.head(3))
+
+        return df
+
+    except Exception as e:
+        st.error(f"❌ 파일 로드 중 오류 발생: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        return pd.DataFrame()
+
+
+# 페이지 설정
+st.set_page_config(
+    page_title="2025 영업 실적 대시보드",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 타이틀
+st.title("📊 2025년 영업 실적 분석 대시보드")
+st.markdown("---")
+
+# 파일 업로드
+st.markdown("### 📁 데이터 파일 업로드")
+col_upload1, col_upload2 = st.columns(2)
+
+with col_upload1:
+    st.markdown("**파일 1: 영업채널 분석용**")
+    uploaded_file = st.file_uploader(
+        "영업채널 중심 데이터 (필수)",
+        type=['xlsx', 'xls', 'csv'],
+        key="file1"
+    )
+
+with col_upload2:
+    st.markdown("**파일 2: 약정기간/리스구분 분석용**")
+    uploaded_file2 = st.file_uploader(
+        "약정기간/리스구분 중심 데이터 (선택)",
+        type=['xlsx', 'xls', 'csv'],
+        key="file2"
+    )
+
+st.markdown("---")
+
+if uploaded_file is not None:
+    # 파일 읽기
+    try:
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+        else:
+            df = pd.read_excel(uploaded_file)
+
+        # 컬럼명 정리 (공백 제거)
+        df.columns = df.columns.str.strip()
+
+        # 디버깅: 실제 컬럼명 확인
+        st.sidebar.info(f"파일 컬럼: {', '.join(df.columns[:5])}...")
+
+        # 필수 컬럼 매핑 (유연한 컬럼명 처리)
+        column_mapping = {}
+
+        # 연도 컬럼 찾기
+        if '연도' in df.columns:
+            column_mapping['연도'] = '연도'
+        else:
+            st.error("'연도' 컬럼을 찾을 수 없습니다.")
+            st.stop()
+
+        # 월 컬럼 찾기
+        if '월' in df.columns:
+            column_mapping['월'] = '월'
+        else:
+            st.error("'월' 컬럼을 찾을 수 없습니다.")
+            st.stop()
+
+        # 영업채널 컬럼 찾기
+        if '영업채널' in df.columns:
+            column_mapping['영업채널'] = '영업채널'
+        else:
+            st.error("'영업채널' 컬럼을 찾을 수 없습니다.")
+            st.stop()
+
+        # 제품 컬럼 찾기
+        for col in df.columns:
+            if '제품계층구조1' in col or '제품계층구조 1' in col:
+                column_mapping['제품계층구조1'] = col
+            if '제품계층구조2' in col or '제품계층구조 2' in col:
+                column_mapping['제품계층구조2'] = col
+            if '제품명' in col:
+                column_mapping['제품명'] = col
+
+        # 렌탈 건수 컬럼 찾기
+        for col in df.columns:
+            if '총렌탈' in col and '건' in col:
+                column_mapping['총렌탈(건)'] = col
+            elif col == '렌탈(건)' or (('렌탈' in col or '신규' in col) and '건' in col and '총' not in col and '재' not in col):
+                column_mapping['렌탈(건)'] = col
+            elif '재렌탈' in col and '건' in col:
+                column_mapping['재렌탈(건)'] = col
+
+        # 필수 컬럼 확인
+        required_keys = ['연도', '월', '영업채널', '제품계층구조1', '제품계층구조2', '제품명',
+                         '총렌탈(건)', '렌탈(건)', '재렌탈(건)']
+
+        missing_keys = [key for key in required_keys if key not in column_mapping]
+
+        if missing_keys:
+            st.error(f"필수 컬럼을 찾을 수 없습니다: {', '.join(missing_keys)}")
+            st.info(f"현재 파일의 컬럼명: {', '.join(df.columns.tolist())}")
+            st.stop()
+
+        # 컬럼명 표준화
+        df_renamed = df.rename(columns={v: k for k, v in column_mapping.items()})
+
+        # 데이터 전처리
+        # 연도 처리
+        df_renamed['연도'] = df_renamed['연도'].astype(str)
+
+        # ========== Section 1: 핵심 KPI 메트릭 ==========
+        st.markdown("## 📈 핵심 성과 지표 (KPI)")
+
+        # 데이터가 있는지 확인
+        if filtered_df.empty:
+            st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
+        else:
+            col1, col2, col3, col4 = st.columns(4)
+
+            # 총 렌탈 건수
+            total_rental = filtered_df['총렌탈(건)'].sum()
+            prev_total_rental = prev_month_df['총렌탈(건)'].sum() if not prev_month_df.empty else 0
+            delta_total = total_rental - prev_total_rental
+            delta_pct_total = (delta_total / prev_total_rental * 100) if prev_total_rental > 0 else 0
+
+            with col1:
+                st.metric(
+                    label="총 렌탈 건수",
+                    value=f"{int(total_rental):,}건",
+                    delta=f"{delta_pct_total:+.1f}% ({int(delta_total):+,}건)" if prev_total_rental > 0 else "N/A"
+                )
+
+            # 신규 렌탈 건수
+            new_rental = filtered_df['렌탈(건)'].sum()
+            prev_new_rental = prev_month_df['렌탈(건)'].sum() if not prev_month_df.empty else 0
+            delta_new = new_rental - prev_new_rental
+            delta_pct_new = (delta_new / prev_new_rental * 100) if prev_new_rental > 0 else 0
+
+            with col2:
+                st.metric(
+                    label="신규 렌탈 건수",
+                    value=f"{int(new_rental):,}건",
+                    delta=f"{delta_pct_new:+.1f}% ({int(delta_new):+,}건)" if prev_new_rental > 0 else "N/A"
+                )
+
+            # 재렌탈 건수
+            re_rental = filtered_df['재렌탈(건)'].sum()
+            prev_re_rental = prev_month_df['재렌탈(건)'].sum() if not prev_month_df.empty else 0
+            delta_re = re_rental - prev_re_rental
+            delta_pct_re = (delta_re / prev_re_rental * 100) if prev_re_rental > 0 else 0
+
+            with col3:
+                st.metric(
+                    label="재렌탈 건수",
+                    value=f"{int(re_rental):,}건",
+                    delta=f"{delta_pct_re:+.1f}% ({int(delta_re):+,}건)" if prev_re_rental > 0 else "N/A"
+                )
+
+            # 홈케어 채널 비중
+            homecare_rental = filtered_df[filtered_df['영업채널'] == '홈케어']['총렌탈(건)'].sum()
+            homecare_ratio = (homecare_rental / total_rental * 100) if total_rental > 0 else 0
+
+            prev_homecare_rental = prev_month_df[prev_month_df['영업채널'] == '홈케어'][
+                '총렌탈(건)'].sum() if not prev_month_df.empty else 0
+            prev_homecare_ratio = (prev_homecare_rental / prev_total_rental * 100) if prev_total_rental > 0 else 0
+            delta_homecare = homecare_ratio - prev_homecare_ratio
+
+            with col4:
+                st.metric(
+                    label="홈케어 채널 비중",
+                    value=f"{homecare_ratio:.1f}%",
+                    delta=f"{delta_homecare:+.1f}%p" if prev_total_rental > 0 else "N/A"
+                )
+
+        st.markdown("---")
+
+        # ========== Section 2: 월별 추이 분석 ==========
+        st.markdown("## 📊 월별 실적 추이")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # 월별 영업채널별 총렌탈 건수
+            monthly_channel = filtered_df.groupby(['월_숫자', '영업채널'], as_index=False)['총렌탈(건)'].sum()
+
+            if not monthly_channel.empty:
+                # 월별 전체 합계 계산 (백분율용)
+                monthly_total = monthly_channel.groupby('월_숫자')['총렌탈(건)'].sum().reset_index()
+                monthly_total.columns = ['월_숫자', '월별합계']
+                monthly_channel = monthly_channel.merge(monthly_total, on='월_숫자')
+                monthly_channel['비중(%)'] = (monthly_channel['총렌탈(건)'] / monthly_channel['월별합계'] * 100).round(1)
+                monthly_channel = monthly_channel.sort_values('월_숫자')
+
+                fig1 = px.bar(
+                    monthly_channel,
+                    x='월_숫자',
+                    y='총렌탈(건)',
+                    color='영업채널',
+                    title="월별 영업채널별 총렌탈 건수",
+                    labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수'},
+                    text='총렌탈(건)',
+                    height=400,
+                    hover_data={
+                        '총렌탈(건)': ':,',
+                        '비중(%)': ':.1f',
+                        '월_숫자': False
+                    }
+                )
+                fig1.update_traces(
+                    texttemplate='%{text:,.0f}',
+                    textposition='inside',
+                    hovertemplate='<b>%{fullData.name}</b><br>' +
+                                  '월: %{x}월<br>' +
+                                  '총렌탈: %{y:,}건<br>' +
+                                  '비중: %{customdata[0]:.1f}%<br>' +
+                                  '<extra></extra>'
+                )
+                fig1.update_layout(
+                    xaxis_type='category',
+                    xaxis_title="월",
+                    yaxis_title="총렌탈 건수"
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        with col2:
+            # 월별 렌탈 유형별 건수
+            monthly_type = filtered_df.groupby('월_숫자', as_index=False).agg({
+                '렌탈(건)': 'sum',
+                '재렌탈(건)': 'sum'
+            })
+
+            if not monthly_type.empty:
+                monthly_type['총렌탈'] = monthly_type['렌탈(건)'] + monthly_type['재렌탈(건)']
+                monthly_type['신규비중(%)'] = (monthly_type['렌탈(건)'] / monthly_type['총렌탈'] * 100).round(1)
+                monthly_type['재렌탈비중(%)'] = (monthly_type['재렌탈(건)'] / monthly_type['총렌탈'] * 100).round(1)
+                monthly_type = monthly_type.sort_values('월_숫자')
+
+                fig2 = go.Figure()
+                fig2.add_trace(go.Bar(
+                    x=monthly_type['월_숫자'],
+                    y=monthly_type['렌탈(건)'],
+                    name='신규 렌탈',
+                    text=monthly_type['렌탈(건)'],
+                    texttemplate='%{text:,.0f}',
+                    textposition='inside',
+                    customdata=monthly_type[['신규비중(%)']],
+                    hovertemplate='<b>신규 렌탈</b><br>' +
+                                  '월: %{x}월<br>' +
+                                  '건수: %{y:,}건<br>' +
+                                  '비중: %{customdata[0]:.1f}%<br>' +
+                                  '<extra></extra>'
+                ))
+                fig2.add_trace(go.Bar(
+                    x=monthly_type['월_숫자'],
+                    y=monthly_type['재렌탈(건)'],
+                    name='재렌탈',
+                    text=monthly_type['재렌탈(건)'],
+                    texttemplate='%{text:,.0f}',
+                    textposition='inside',
+                    customdata=monthly_type[['재렌탈비중(%)']],
+                    hovertemplate='<b>재렌탈</b><br>' +
+                                  '월: %{x}월<br>' +
+                                  '건수: %{y:,}건<br>' +
+                                  '비중: %{customdata[0]:.1f}%<br>' +
+                                  '<extra></extra>'
+                ))
+
+                fig2.update_layout(
+                    title="월별 렌탈 유형별 건수 (신규 vs 재렌탈)",
+                    xaxis_title="월",
+                    yaxis_title="건수",
+                    barmode='group',
+                    height=400,
+                    xaxis_type='category'
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        st.markdown("---")
+
+        # ========== Section 3: 채널별 심층 분석 ==========
+        st.markdown("## 🎯 영업채널별 분석")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # 영업채널별 실적 비중
+            channel_total = filtered_df.groupby('영업채널', as_index=False)['총렌탈(건)'].sum()
+
+            if not channel_total.empty and channel_total['총렌탈(건)'].sum() > 0:
+                channel_total['비중(%)'] = (channel_total['총렌탈(건)'] / channel_total['총렌탈(건)'].sum() * 100).round(1)
+                channel_total = channel_total.sort_values('총렌탈(건)', ascending=False)
+
+                fig3 = px.pie(
+                    channel_total,
+                    values='총렌탈(건)',
+                    names='영업채널',
+                    title="영업채널별 실적 비중",
+                    hole=0.4,
+                    height=400
+                )
+                fig3.update_traces(
+                    textposition='inside',
+                    textinfo='percent+label',
+                    hovertemplate='<b>%{label}</b><br>' +
+                                  '건수: %{value:,}건<br>' +
+                                  '비중: %{percent}<br>' +
+                                  '<extra></extra>'
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        with col2:
+            # 영업채널별 성장 추세
+            monthly_channel_growth = filtered_df.groupby(['월_숫자', '영업채널'], as_index=False)['총렌탈(건)'].sum()
+
+            if not monthly_channel_growth.empty:
+                # 각 채널별 월별 비중 계산
+                monthly_totals = monthly_channel_growth.groupby('월_숫자')['총렌탈(건)'].sum().reset_index()
+                monthly_totals.columns = ['월_숫자', '월별합계']
+                monthly_channel_growth = monthly_channel_growth.merge(monthly_totals, on='월_숫자')
+                monthly_channel_growth['비중(%)'] = (
+                        monthly_channel_growth['총렌탈(건)'] / monthly_channel_growth['월별합계'] * 100).round(1)
+                monthly_channel_growth = monthly_channel_growth.sort_values('월_숫자')
+
+                fig4 = px.line(
+                    monthly_channel_growth,
+                    x='월_숫자',
+                    y='총렌탈(건)',
+                    color='영업채널',
+                    title="영업채널별 월별 성장 추세",
+                    markers=True,
+                    labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수'},
+                    height=400,
+                    hover_data={
+                        '총렌탈(건)': ':,',
+                        '비중(%)': ':.1f',
+                        '월_숫자': False
+                    }
+                )
+                fig4.update_traces(
+                    hovertemplate='<b>%{fullData.name}</b><br>' +
+                                  '월: %{x}월<br>' +
+                                  '총렌탈: %{y:,}건<br>' +
+                                  '비중: %{customdata[0]:.1f}%<br>' +
+                                  '<extra></extra>'
+                )
+                fig4.update_layout(
+                    xaxis_type='category',
+                    xaxis_title="월",
+                    yaxis_title="총렌탈 건수"
+                )
+                st.plotly_chart(fig4, use_container_width=True)
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        st.markdown("---")
+
+        # ========== Section 4: 제품 분석 ==========
+        st.markdown("## 🏆 제품별 분석")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # 제품계층구조1별 매출 비중
+            product1_total = filtered_df.groupby('제품계층구조1', as_index=False)['총렌탈(건)'].sum()
+
+            if not product1_total.empty and product1_total['총렌탈(건)'].sum() > 0:
+                product1_total['비중(%)'] = (product1_total['총렌탈(건)'] / product1_total['총렌탈(건)'].sum() * 100).round(1)
+                product1_total = product1_total.sort_values('총렌탈(건)', ascending=True)
+
+                fig5 = px.bar(
+                    product1_total,
+                    x='총렌탈(건)',
+                    y='제품계층구조1',
+                    orientation='h',
+                    title="제품계층구조1별 실적",
+                    text='총렌탈(건)',
+                    height=400,
+                    hover_data={
+                        '총렌탈(건)': ':,',
+                        '비중(%)': ':.1f'
+                    }
+                )
+                fig5.update_traces(
+                    texttemplate='%{text:,.0f}',
+                    textposition='outside',
+                    hovertemplate='<b>%{y}</b><br>' +
+                                  '건수: %{x:,}건<br>' +
+                                  '비중: %{customdata[0]:.1f}%<br>' +
+                                  '<extra></extra>'
+                )
+                fig5.update_layout(
+                    xaxis_title="총렌탈 건수",
+                    yaxis_title="제품계층구조1"
+                )
+                st.plotly_chart(fig5, use_container_width=True)
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        with col2:
+            # Top 10 제품명 실적
+            if not filtered_df.empty and filtered_df['총렌탈(건)'].sum() > 0:
+                top_products = filtered_df.groupby('제품명', as_index=False)['총렌탈(건)'].sum()
+                top_products['비중(%)'] = (top_products['총렌탈(건)'] / filtered_df['총렌탈(건)'].sum() * 100).round(1)
+                top_products = top_products.sort_values('총렌탈(건)', ascending=False).head(10)
+                top_products = top_products.sort_values('총렌탈(건)', ascending=True)
+
+                if not top_products.empty:
+                    fig6 = px.bar(
+                        top_products,
+                        x='총렌탈(건)',
+                        y='제품명',
+                        orientation='h',
+                        title="Top 10 제품명 실적",
+                        text='총렌탈(건)',
+                        height=400,
+                        hover_data={
+                            '총렌탈(건)': ':,',
+                            '비중(%)': ':.1f'
+                        }
+                    )
+                    fig6.update_traces(
+                        texttemplate='%{text:,.0f}',
+                        textposition='outside',
+                        hovertemplate='<b>%{y}</b><br>' +
+                                      '건수: %{x:,}건<br>' +
+                                      '비중: %{customdata[0]:.1f}%<br>' +
+                                      '<extra></extra>'
+                    )
+                    fig6.update_layout(
+                        xaxis_title="총렌탈 건수",
+                        yaxis_title="제품명"
+                    )
+                    st.plotly_chart(fig6, use_container_width=True)
+                else:
+                    st.warning("제품명 데이터가 없습니다.")
+            else:
+                st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        st.markdown("---")
+
+        # ========== Section 5: 영업채널별 렌탈 유형 비중 ==========
+        st.markdown("## 🔄 영업채널별 렌탈 유형 분석")
+
+        channel_type = filtered_df.groupby('영업채널', as_index=False).agg({
+            '총렌탈(건)': 'sum',
+            '렌탈(건)': 'sum',
+            '재렌탈(건)': 'sum'
+        })
+
+        if not channel_type.empty:
+            # 0으로 나누는 것 방지
+            channel_type['신규비중(%)'] = channel_type.apply(
+                lambda x: (x['렌탈(건)'] / x['총렌탈(건)'] * 100) if x['총렌탈(건)'] > 0 else 0,
+                axis=1
+            ).round(1)
+            channel_type['재렌탈비중(%)'] = channel_type.apply(
+                lambda x: (x['재렌탈(건)'] / x['총렌탈(건)'] * 100) if x['총렌탈(건)'] > 0 else 0,
+                axis=1
+            ).round(1)
+
+            fig7 = go.Figure()
+            fig7.add_trace(go.Bar(
+                y=channel_type['영업채널'],
+                x=channel_type['렌탈(건)'],
+                name='신규 렌탈',
+                orientation='h',
+                text=channel_type['렌탈(건)'],
+                texttemplate='%{text:,.0f}',
+                textposition='inside',
+                customdata=channel_type[['신규비중(%)']],
+                hovertemplate='<b>신규 렌탈</b><br>' +
+                              '채널: %{y}<br>' +
+                              '건수: %{x:,}건<br>' +
+                              '비중: %{customdata[0]:.1f}%<br>' +
+                              '<extra></extra>'
+            ))
+            fig7.add_trace(go.Bar(
+                y=channel_type['영업채널'],
+                x=channel_type['재렌탈(건)'],
+                name='재렌탈',
+                orientation='h',
+                text=channel_type['재렌탈(건)'],
+                texttemplate='%{text:,.0f}',
+                textposition='inside',
+                customdata=channel_type[['재렌탈비중(%)']],
+                hovertemplate='<b>재렌탈</b><br>' +
+                              '채널: %{y}<br>' +
+                              '건수: %{x:,}건<br>' +
+                              '비중: %{customdata[0]:.1f}%<br>' +
+                              '<extra></extra>'
+            ))
+
+            fig7.update_layout(
+                title="영업채널별 렌탈 유형 비중 (신규 vs 재렌탈)",
+                xaxis_title="건수",
+                yaxis_title="영업채널",
+                barmode='stack',
+                height=400
+            )
+            st.plotly_chart(fig7, use_container_width=True)
+        else:
+            st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+
+        st.markdown("---")
+
+    except Exception as e:
+        st.error(f"❌ 오류 발생: {str(e)}")
+        import traceback
+
+        st.code(traceback.format_exc())
+else:
+    st.info("👆 파일을 업로드하여 시작하세요.")
+
+    # ========== Section 6: 상세 데이터 테이블 ==========
+    st.markdown("## 📋 상세 데이터")
+
+    if not filtered_df.empty:
+        # 표시할 컬럼 선택
+        display_columns = ['연도', '월', '영업채널', '제품계층구조1', '제품계층구조2',
+                           '제품명', '총렌탈(건)', '렌탈(건)', '재렌탈(건)']
+
+        # 월 컬럼을 문자열로 변환 (표시용)
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display['월'] = filtered_df_display['월_숫자'].astype(str) + '월'
+
+        # 먼저 정렬한 후 컬럼 선택
+        filtered_df_sorted = filtered_df_display.sort_values(['월_숫자', '총렌탈(건)'], ascending=[True, False])
+
+        st.dataframe(
+            filtered_df_sorted[display_columns],
+            use_container_width=True,
+            height=400
+        )
+
+        # CSV 다운로드
+        csv = filtered_df_sorted[display_columns].to_csv(index=False, encoding='utf-8-sig')
+        st.download_button(
+            label="📥 필터링된 데이터 다운로드 (CSV)",
+            data=csv,
+            file_name=f"영업실적_필터링_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+
+        # 데이터 요약 정보 (안전한 변수 계산)
+        total_rental_sum = filtered_df['총렌탈(건)'].sum()
+        new_rental_sum = filtered_df['렌탈(건)'].sum()
+        re_rental_sum = filtered_df['재렌탈(건)'].sum()
+
+        st.info(
+            f"📊 필터링된 데이터: 총 {len(filtered_df):,}건 | 총 렌탈: {int(total_rental_sum):,}건 | 신규: {int(new_rental_sum):,}건 | 재렌탈: {int(re_rental_sum):,}건")
+    else:
+        st.warning("표시할 데이터가 없습니다.")
+
+    st.markdown("---")
+
+    # ========== Section 7, 8: 파일2 분석 (약정기간별) ==========
+    if uploaded_file2 is not None:
+        st.markdown("## 📅 약정기간별 분석 (파일2)")
+
+        try:
+            # 파일2 로드
+            if uploaded_file2.name.endswith('.csv'):
+                df2 = pd.read_csv(uploaded_file2, encoding='utf-8-sig')
+            else:
+                df2 = pd.read_excel(uploaded_file2)
+
+            # 컬럼명 정리
+            df2.columns = df2.columns.str.strip()
+
+            st.write(f"📁 파일2 로드 성공: {len(df2)}행 × {len(df2.columns)}열")
+            st.write("🔍 **파일2 컬럼:**", df2.columns.tolist()[:10])
+
+
+            # 파일2 전처리
+            def preprocess_file2(df):
+                """파일2 데이터 전처리 함수"""
+                df = df.copy()
+
+                # 연도 처리
+                if '연도' in df.columns:
+                    df['연도'] = df['연도'].astype(str).str.replace('년', '').str.strip()
+                    df['연도'] = pd.to_numeric(df['연도'], errors='coerce')
+                    df = df.dropna(subset=['연도'])
+                    df['연도'] = df['연도'].astype(int)
+
+                # 월 처리
+                if '월' in df.columns:
+                    df['월'] = df['월'].astype(str).str.replace('월', '').str.strip()
+                    df['월_숫자'] = pd.to_numeric(df['월'], errors='coerce')
+                    df = df.dropna(subset=['월_숫자'])
+                    df['월_숫자'] = df['월_숫자'].astype(int)
+
+                # 총렌탈(건) 처리
+                rental_cols = [col for col in df.columns if '총렌탈' in col and '건' in col]
+                if rental_cols:
+                    df['총렌탈(건)'] = pd.to_numeric(df[rental_cols[0]], errors='coerce').fillna(0)
+
+                # 약정기간 처리
+                contract_cols = [col for col in df.columns if '약정' in col and '기간' in col]
+                if contract_cols:
+                    df['약정기간'] = df[contract_cols[0]].astype(str).str.strip()
+
+                # 리스구분 처리
+                lease_cols = [col for col in df.columns if '리스' in col and '구분' in col]
+                if lease_cols:
+                    df['리스구분'] = df[lease_cols[0]].astype(str).str.strip()
+
+                # 제품계층구조1 처리
+                product1_cols = [col for col in df.columns if '제품계층구조1' in col or '제품계층구조 1' in col]
+                if product1_cols:
+                    df['제품계층구조1'] = df[product1_cols[0]].astype(str).str.strip()
+
+                # 제품명 처리 (있는 경우)
+                product_name_cols = [col for col in df.columns if '제품명' in col]
+                if product_name_cols:
+                    df['제품명'] = df[product_name_cols[0]].astype(str).str.strip()
+
+                # NaN 제거
+                df = df.dropna(subset=['연도', '월_숫자'])
+
+                return df
+
+
+            df2 = preprocess_file2(df2)
+
+            # 필수 컬럼 확인
+            required_cols_2 = ['연도', '월_숫자', '제품계층구조1', '총렌탈(건)']
+            missing_cols = [col for col in required_cols_2 if col not in df2.columns]
+
+            if missing_cols:
+                st.error(f"파일2에 필수 컬럼이 없습니다: {', '.join(missing_cols)}")
+                st.info(f"현재 파일2의 컬럼: {', '.join(df2.columns.tolist())}")
+            else:
+                # 약정기간과 리스구분이 있는지 확인
+                has_contract = '약정기간' in df2.columns
+                has_lease = '리스구분' in df2.columns
+
+                if not has_contract:
+                    st.warning("⚠️ '약정기간' 컬럼을 찾을 수 없습니다.")
+
+                # 사이드바 필터 추가 (파일2용)
+                st.sidebar.markdown("---")
+                st.sidebar.header("🔍 파일2 필터 설정")
+
+                # 연도 필터
+                years_2 = sorted(df2['연도'].unique())
+                if len(years_2) > 0:
+                    selected_year_2 = st.sidebar.selectbox("파일2 연도 선택", years_2, index=len(years_2) - 1, key="year2")
+                else:
+                    st.error("파일2에 연도 정보가 없습니다.")
+                    selected_year_2 = None
+
+                if selected_year_2:
+                    # 월 필터
+                    months_2 = sorted(df2[df2['연도'] == selected_year_2]['월_숫자'].unique())
+                    if len(months_2) > 0:
+                        selected_months_2 = st.sidebar.multiselect(
+                            "파일2 월 선택",
+                            months_2,
+                            default=months_2,
+                            key="months2"
+                        )
+                    else:
+                        st.error(f"파일2에 {selected_year_2}년 데이터가 없습니다.")
+                        selected_months_2 = []
+
+                    # 제품계층구조1 필터
+                    product1_2 = sorted(df2['제품계층구조1'].dropna().unique())
+                    selected_product1_2 = st.sidebar.multiselect(
+                        "파일2 제품계층구조1 선택",
+                        product1_2,
+                        default=product1_2,
+                        key="product1_2"
+                    )
+
+                    # 제품명 필터 (Section 8용)
+                    if '제품명' in df2.columns:
+                        products_2 = sorted(df2['제품명'].dropna().unique())
+                        selected_products_2 = st.sidebar.multiselect(
+                            "파일2 제품명 검색 (Section 8용)",
+                            products_2,
+                            key="products2"
+                        )
+                    else:
+                        selected_products_2 = []
+
+                    # 데이터 필터링
+                    filtered_df2 = df2[
+                        (df2['연도'] == selected_year_2) &
+                        (df2['월_숫자'].isin(selected_months_2)) &
+                        (df2['제품계층구조1'].isin(selected_product1_2))
+                        ].copy()
+
+                    if len(filtered_df2) == 0:
+                        st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
+                    elif not has_contract:
+                        st.warning("약정기간 컬럼이 없어 Section 7, 8을 표시할 수 없습니다.")
+                    else:
+                        # Section 7: 제품계층구조1별 × 약정기간별 월별 추이
+                        st.markdown("### 📊 Section 7: 제품계층구조1별 × 약정기간별 월별 추이")
+
+                        # 약정기간별로 색상 구분하여 누적 막대 차트
+                        chart_data_7 = filtered_df2.groupby(
+                            ['월_숫자', '제품계층구조1', '약정기간'],
+                            as_index=False
+                        )['총렌탈(건)'].sum()
+
+                        if not chart_data_7.empty:
+                            # 각 월/제품계층구조1별 총합 계산 (백분율용)
+                            monthly_product_total = chart_data_7.groupby(['월_숫자', '제품계층구조1'])[
+                                '총렌탈(건)'].sum().reset_index()
+                            monthly_product_total.columns = ['월_숫자', '제품계층구조1', '월별제품합계']
+                            chart_data_7 = chart_data_7.merge(monthly_product_total, on=['월_숫자', '제품계층구조1'])
+                            chart_data_7['비중(%)'] = chart_data_7.apply(
+                                lambda x: (x['총렌탈(건)'] / x['월별제품합계'] * 100) if x['월별제품합계'] > 0 else 0,
+                                axis=1
+                            ).round(1)
+
+                            # 제품계층구조1별로 서브플롯 생성
+                            for product1 in selected_product1_2:
+                                product_data = chart_data_7[chart_data_7['제품계층구조1'] == product1].copy()
+
+                                if not product_data.empty:
+                                    fig7 = px.bar(
+                                        product_data,
+                                        x='월_숫자',
+                                        y='총렌탈(건)',
+                                        color='약정기간',
+                                        title=f"{product1} - 약정기간별 월별 추이",
+                                        labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수', '약정기간': '약정기간'},
+                                        text='총렌탈(건)',
+                                        height=450,
+                                        hover_data={
+                                            '총렌탈(건)': ':,',
+                                            '비중(%)': ':.1f',
+                                            '월_숫자': False
+                                        }
+                                    )
+
+                                    fig7.update_traces(
+                                        texttemplate='%{text:,.0f}',
+                                        textposition='inside',
+                                        hovertemplate='<b>약정기간: %{fullData.name}</b><br>' +
+                                                      '월: %{x}월<br>' +
+                                                      '총렌탈: %{y:,}건<br>' +
+                                                      '비중: %{customdata[0]:.1f}%<br>' +
+                                                      '<extra></extra>'
+                                    )
+
+                                    fig7.update_layout(
+                                        xaxis_type='category',
+                                        xaxis_title="월",
+                                        yaxis_title="총렌탈 건수",
+                                        barmode='stack'
+                                    )
+
+                                    st.plotly_chart(fig7, use_container_width=True)
+                        else:
+                            st.warning("차트를 생성할 데이터가 없습니다.")
+
+                        st.markdown("---")
+
+                        # Section 8: 제품명 검색 → 약정기간별 월별 추이
+                        if selected_products_2 and '제품명' in filtered_df2.columns:
+                            st.markdown("### 🔍 Section 8: 제품명별 × 약정기간별 월별 추이")
+
+                            # 선택된 제품명 필터링
+                            product_filtered_df2 = filtered_df2[
+                                filtered_df2['제품명'].isin(selected_products_2)
+                            ].copy()
+
+                            if len(product_filtered_df2) == 0:
+                                st.warning("선택한 제품명에 해당하는 데이터가 없습니다.")
+                            else:
+                                chart_data_8 = product_filtered_df2.groupby(
+                                    ['월_숫자', '제품명', '약정기간'],
+                                    as_index=False
+                                )['총렌탈(건)'].sum()
+
+                                if not chart_data_8.empty:
+                                    # 각 월/제품명별 총합 계산 (백분율용)
+                                    monthly_product_name_total = chart_data_8.groupby(['월_숫자', '제품명'])[
+                                        '총렌탈(건)'].sum().reset_index()
+                                    monthly_product_name_total.columns = ['월_숫자', '제품명', '월별제품명합계']
+                                    chart_data_8 = chart_data_8.merge(monthly_product_name_total, on=['월_숫자', '제품명'])
+                                    chart_data_8['비중(%)'] = chart_data_8.apply(
+                                        lambda x: (x['총렌탈(건)'] / x['월별제품명합계'] * 100) if x['월별제품명합계'] > 0 else 0,
+                                        axis=1
+                                    ).round(1)
+
+                                    # 제품명별로 차트 생성
+                                    for product_name in selected_products_2:
+                                        product_name_data = chart_data_8[chart_data_8['제품명'] == product_name].copy()
+
+                                        if not product_name_data.empty:
+                                            fig8 = px.bar(
+                                                product_name_data,
+                                                x='월_숫자',
+                                                y='총렌탈(건)',
+                                                color='약정기간',
+                                                title=f"{product_name} - 약정기간별 월별 추이",
+                                                labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수', '약정기간': '약정기간'},
+                                                text='총렌탈(건)',
+                                                height=450,
+                                                hover_data={
+                                                    '총렌탈(건)': ':,',
+                                                    '비중(%)': ':.1f',
+                                                    '월_숫자': False
+                                                }
+                                            )
+
+                                        fig8.update_traces(
+                                            texttemplate='%{text:,.0f}',
+                                            textposition='inside',
+                                            hovertemplate='<b>약정기간: %{fullData.name}</b><br>' +
+                                                          '월: %{x}월<br>' +
+                                                          '총렌탈: %{y:,}건<br>' +
+                                                          '비중: %{customdata[0]:.1f}%<br>' +
+                                                          '<extra></extra>'
+                                        )
+
+                                        fig8.update_layout(
+                                            xaxis_type='category',
+                                            xaxis_title="월",
+                                            yaxis_title="총렌탈 건수",
+                                            barmode='stack'
+                                        )
+
+                                        st.plotly_chart(fig8, use_container_width=True)
+                                else:
+                                    st.warning("차트를 생성할 데이터가 없습니다.")
+                        elif not selected_products_2:
+                            st.info("💡 좌측 사이드바에서 '파일2 제품명 검색'을 선택하면 Section 8이 표시됩니다.")
+
+        except Exception as e:
+            st.error(f"파일2 처리 중 오류가 발생했습니다: {str(e)}")
+            import traceback
+
+            st.code(traceback.format_exc())
+
+    except Exception as e:
+    st.error(f"❌ 오류 발생: {str(e)}")
+    import traceback
+
+    st.code(traceback.format_exc())
+
+else:
+st.info("👆 파일을 업로드하여 시작하세요.")
+
+# 안내 메시지
+st.markdown("""
+    ### 📖 사용 방법
+    1. **파일 업로드**: 
+       - 파일1 (필수): 영업채널 중심 분석용 엑셀/CSV
+       - 파일2 (선택): 약정기간/리스구분 중심 분석용 엑셀/CSV
+    2. **필터 설정**: 좌측 사이드바에서 원하는 조건을 선택합니다.
+    3. **대시보드 확인**: 다양한 차트와 KPI를 통해 실적을 분석합니다.
+    
+    ### 📊 제공되는 분석
+    **[파일1 분석]**
+    - **핵심 KPI**: 총렌탈, 신규렌탈, 재렌탈 건수 및 홈케어 채널 비중
+    - **월별 추이**: 영업채널별/유형별 월간 실적 변화
+    - **채널 분석**: 영업채널별 비중 및 성장 추세
+    - **제품 분석**: 제품계층구조별 및 Top 10 제품 실적
+    - **유형 분석**: 영업채널별 신규/재렌탈 비중
+    - **상세 데이터**: 필터링된 전체 데이터 조회 및 다운로드
+    
+    **[파일2 분석] (파일2 업로드 시)**
+    - **Section 7**: 제품계층구조1별 × 약정기간별 월별 추이
+    - **Section 8**: 제품명별 × 약정기간별 월별 추이
+    """)
