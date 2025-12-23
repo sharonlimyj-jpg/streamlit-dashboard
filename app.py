@@ -533,16 +533,17 @@ with col_manual:
         "
         onmouseover="this.style.backgroundColor='#45a049'; this.style.transform='scale(1.05)';"
         onmouseout="this.style.backgroundColor='#4CAF50'; this.style.transform='scale(1)';">
-            📖 매뉴얼
+             📖 매뉴얼
         </button>
     </div>
     <script>
         function openManual() {{
-            // Base64 디코딩 및 새 창으로 열기
-            var htmlContent = atob('{manual_html_encoded}');
-            var newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-            newWindow.document.write(htmlContent);
-            newWindow.document.close();
+            // GitHub Pages에서 매뉴얼 열기
+            window.open('https://sharonlimyj-jpg.github.io/streamlit-dashboard/dashboard_manual.html', 
+                       '_blank', 
+                       'width=1200,height=800,scrollbars=yes,resizable=yes');
+        }}
+    </script>
         }}
     </script>
     """, unsafe_allow_html=True)
