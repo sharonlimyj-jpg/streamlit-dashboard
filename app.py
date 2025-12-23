@@ -10,18 +10,18 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
     """파일을 로드하고 컬럼명을 정리하여 반환"""
     try:
         if uploaded_file is None:
-            st.warning(f"[경고] {file_label}이 업로드되지 않았습니다.")
+            st.warning(f"⚠️ {file_label}이 업로드되지 않았습니다.")
             return pd.DataFrame()
         
         # 파일 이름 확인
-        st.info(f"[검색] {file_label} 파일명: {uploaded_file.name if hasattr(uploaded_file, 'name') else '기본 파일'}")
+        st.info(f"🔍 {file_label} 파일명: {uploaded_file.name if hasattr(uploaded_file, 'name') else '기본 파일'}")
         
         # 파일 포인터를 처음으로 이동
         try:
             if hasattr(uploaded_file, 'seek'):
                 uploaded_file.seek(0)
         except Exception as seek_error:
-            st.warning(f"[경고] 파일 포인터 이동 실패: {str(seek_error)}")
+            st.warning(f"⚠️ 파일 포인터 이동 실패: {str(seek_error)}")
         
         # 파일 읽기
         df = None
@@ -31,40 +31,40 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
             # CSV 파일 처리
             try:
                 df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
-                st.success(f"[성공] {file_label} CSV 파일 읽기 성공 (utf-8-sig)")
+                st.success(f"✅ {file_label} CSV 파일 읽기 성공 (utf-8-sig)")
             except UnicodeDecodeError:
                 try:
                     if hasattr(uploaded_file, 'seek'):
                         uploaded_file.seek(0)
                     df = pd.read_csv(uploaded_file, encoding='cp949')
-                    st.success(f"[성공] {file_label} CSV 파일 읽기 성공 (cp949)")
+                    st.success(f"✅ {file_label} CSV 파일 읽기 성공 (cp949)")
                 except Exception as e:
-                    st.error(f"[오류] {file_label} CSV 읽기 실패: {str(e)}")
+                    st.error(f"❌ {file_label} CSV 읽기 실패: {str(e)}")
                     return pd.DataFrame()
             except Exception as e:
-                st.error(f"[오류] {file_label} CSV 읽기 중 오류: {str(e)}")
+                st.error(f"❌ {file_label} CSV 읽기 중 오류: {str(e)}")
                 return pd.DataFrame()
         else:
             # Excel 파일 처리
             try:
                 df = pd.read_excel(uploaded_file, engine='openpyxl')
-                st.success(f"[성공] {file_label} Excel 파일 읽기 성공")
+                st.success(f"✅ {file_label} Excel 파일 읽기 성공")
             except Exception as e:
-                st.error(f"[오류] {file_label} Excel 읽기 실패: {str(e)}")
+                st.error(f"❌ {file_label} Excel 읽기 실패: {str(e)}")
                 return pd.DataFrame()
         
         # DataFrame이 비어있는지 확인
         if df is None or df.empty:
-            st.error(f"[오류] {file_label} 파일이 비어있거나 읽을 수 없습니다.")
+            st.error(f"❌ {file_label} 파일이 비어있거나 읽을 수 없습니다.")
             return pd.DataFrame()
         
         # 컬럼명 정리: 공백, 줄바꿈, 특수문자 제거
         df.columns = df.columns.astype(str).str.strip().str.replace('\n', '').str.replace('\r', '')
         
-        st.success(f"[성공] {file_label} 로드 성공: {len(df)}행 × {len(df.columns)}열")
+        st.success(f"✅ {file_label} 로드 성공: {len(df)}행 × {len(df.columns)}열")
         
         # 디버깅 정보 표시
-        with st.expander(f"[검색] {file_label} 컬럼 및 데이터 미리보기"):
+        with st.expander(f"🔍 {file_label} 컬럼 및 데이터 미리보기"):
             st.write("**컬럼 목록:**")
             for idx, col in enumerate(df.columns, 1):
                 st.write(f"{idx}. `{col}` (길이: {len(col)}자, repr: {repr(col)})")
@@ -74,7 +74,7 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
         return df
     
     except Exception as e:
-        st.error(f"[오류] {file_label} 로드 중 예상치 못한 오류: {str(e)}")
+        st.error(f"❌ {file_label} 로드 중 예상치 못한 오류: {str(e)}")
         import traceback
         st.code(traceback.format_exc())
         return pd.DataFrame()
@@ -83,13 +83,13 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
 # 페이지 설정
 st.set_page_config(
     page_title="2025 영업 실적 대시보드",
-    page_icon="[차트]",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # 타이틀
-st.title("[차트] 2025년 영업 실적 분석 대시보드")
+st.title("📊 2025년 영업 실적 분석 대시보드")
 st.markdown("---")
 
 # 기본 파일 경로 설정
@@ -97,14 +97,14 @@ DEFAULT_FILE1 = "data/2025년_영업실적.xlsx"
 DEFAULT_FILE2 = "data/2025년_비용약정2.csv"
 
 # 파일 업로드 섹션
-st.markdown("### [파일] 데이터 파일 설정")
+st.markdown("### 📁 데이터 파일 설정")
 
 # 기본 파일 존재 여부 확인
 file1_exists = os.path.exists(DEFAULT_FILE1)
 file2_exists = os.path.exists(DEFAULT_FILE2)
 
 if file1_exists or file2_exists:
-    st.success("[성공] 기본 데이터 파일이 감지되었습니다. 바로 대시보드를 사용할 수 있습니다!")
+    st.success("✅ 기본 데이터 파일이 감지되었습니다. 바로 대시보드를 사용할 수 있습니다!")
     
 col_upload1, col_upload2 = st.columns(2)
 
@@ -224,7 +224,7 @@ if uploaded_file is not None:
                 df_renamed[col] = pd.to_numeric(df_renamed[col], errors='coerce').fillna(0)
             
             # 사이드바 필터
-            st.sidebar.header("[검색] 필터 설정 (파일1)")
+            st.sidebar.header("🔍 필터 설정 (파일1)")
             
             # 연도 필터
             years = sorted(df_renamed['연도'].unique())
@@ -278,10 +278,10 @@ if uploaded_file is not None:
                 prev_month_df = pd.DataFrame()
 
             # ========== Section 1: 핵심 KPI 메트릭 ==========
-            st.markdown("## [상승] 핵심 성과 지표 (KPI)")
+            st.markdown("## 📈 핵심 성과 지표 (KPI)")
 
             if filtered_df.empty:
-                st.warning("[경고] 선택한 필터 조건에 해당하는 데이터가 없습니다.")
+                st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
             else:
                 col1, col2, col3, col4 = st.columns(4)
 
@@ -342,7 +342,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 2: 월별 추이 분석 ==========
-            st.markdown("## [차트] 월별 실적 추이")
+            st.markdown("## 📊 월별 실적 추이")
 
             col1, col2 = st.columns(2)
 
@@ -449,7 +449,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 3: 채널별 심층 분석 ==========
-            st.markdown("## [타겟] 영업채널별 분석")
+            st.markdown("## 🎯 영업채널별 분석")
 
             col1, col2 = st.columns(2)
 
@@ -527,7 +527,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 4: 제품 분석 ==========
-            st.markdown("## [상위] 제품별 분석")
+            st.markdown("## 🔝 제품별 분석")
 
             col1, col2 = st.columns(2)
 
@@ -610,8 +610,8 @@ if uploaded_file is not None:
 
             st.markdown("---")
 
-            # ========== Section 5: 영업채널별 렌탈 유형 비중 ==========
-            st.markdown("## [순환] 영업채널별 렌탈 유형 분석")
+            # ========== Section 5: 영업채널별 렌탈 유형 비중 (수정됨) ==========
+            st.markdown("## 🔄 영업채널별 렌탈 유형 분석")
 
             channel_type = filtered_df.groupby('영업채널', as_index=False).agg({
                 '총렌탈(건)': 'sum',
@@ -620,7 +620,7 @@ if uploaded_file is not None:
             })
 
             if not channel_type.empty:
-                # 0으로 나누는 것 방지
+                # 비중 계산
                 channel_type['신규비중(%)'] = channel_type.apply(
                     lambda x: (x['렌탈(건)'] / x['총렌탈(건)'] * 100) if x['총렌탈(건)'] > 0 else 0,
                     axis=1
@@ -630,53 +630,96 @@ if uploaded_file is not None:
                     axis=1
                 ).round(1)
 
-                fig7 = go.Figure()
-                fig7.add_trace(go.Bar(
-                    y=channel_type['영업채널'],
-                    x=channel_type['렌탈(건)'],
-                    name='신규 렌탈',
-                    orientation='h',
-                    text=channel_type['렌탈(건)'],
-                    texttemplate='%{text:,.0f}',
-                    textposition='inside',
-                    customdata=channel_type[['신규비중(%)']],
-                    hovertemplate='<b>신규 렌탈</b><br>' +
-                                  '채널: %{y}<br>' +
-                                  '건수: %{x:,}건<br>' +
-                                  '비중: %{customdata[0]:.1f}%<br>' +
-                                  '<extra></extra>'
-                ))
-                fig7.add_trace(go.Bar(
-                    y=channel_type['영업채널'],
-                    x=channel_type['재렌탈(건)'],
-                    name='재렌탈',
-                    orientation='h',
-                    text=channel_type['재렌탈(건)'],
-                    texttemplate='%{text:,.0f}',
-                    textposition='inside',
-                    customdata=channel_type[['재렌탈비중(%)']],
-                    hovertemplate='<b>재렌탈</b><br>' +
-                                  '채널: %{y}<br>' +
-                                  '건수: %{x:,}건<br>' +
-                                  '비중: %{customdata[0]:.1f}%<br>' +
-                                  '<extra></extra>'
-                ))
+                # 2열 레이아웃: 왼쪽에 차트, 오른쪽에 표
+                col1, col2 = st.columns([1.2, 0.8])
+                
+                with col1:
+                    # 세로 누적 막대 차트
+                    fig7 = go.Figure()
+                    fig7.add_trace(go.Bar(
+                        x=channel_type['영업채널'],
+                        y=channel_type['렌탈(건)'],
+                        name='신규 렌탈',
+                        text=channel_type['렌탈(건)'],
+                        texttemplate='%{text:,.0f}',
+                        textposition='inside',
+                        customdata=channel_type[['신규비중(%)']],
+                        hovertemplate='<b>신규 렌탈</b><br>' +
+                                      '채널: %{x}<br>' +
+                                      '건수: %{y:,}건<br>' +
+                                      '비중: %{customdata[0]:.1f}%<br>' +
+                                      '<extra></extra>'
+                    ))
+                    fig7.add_trace(go.Bar(
+                        x=channel_type['영업채널'],
+                        y=channel_type['재렌탈(건)'],
+                        name='재렌탈',
+                        text=channel_type['재렌탈(건)'],
+                        texttemplate='%{text:,.0f}',
+                        textposition='inside',
+                        customdata=channel_type[['재렌탈비중(%)']],
+                        hovertemplate='<b>재렌탈</b><br>' +
+                                      '채널: %{x}<br>' +
+                                      '건수: %{y:,}건<br>' +
+                                      '비중: %{customdata[0]:.1f}%<br>' +
+                                      '<extra></extra>'
+                    ))
 
-                fig7.update_layout(
-                    title="영업채널별 렌탈 유형 비중 (신규 vs 재렌탈)",
-                    xaxis_title="건수",
-                    yaxis_title="영업채널",
-                    barmode='stack',
-                    height=400
-                )
-                st.plotly_chart(fig7, use_container_width=True)
+                    fig7.update_layout(
+                        title="영업채널별 렌탈 유형 비중 (신규 vs 재렌탈)",
+                        xaxis_title="영업채널",
+                        yaxis_title="건수",
+                        barmode='stack',
+                        height=500
+                    )
+                    st.plotly_chart(fig7, use_container_width=True)
+                
+                with col2:
+                    # 표 생성 (열합계, 행합계, 백분율 포함)
+                    st.markdown("#### 📊 영업채널별 집계표")
+                    
+                    # 표 데이터 준비
+                    table_data = channel_type[['영업채널', '렌탈(건)', '재렌탈(건)', '총렌탈(건)']].copy()
+                    
+                    # 비중 계산 (백분율)
+                    total_sum = table_data['총렌탈(건)'].sum()
+                    table_data['신규(%)'] = (table_data['렌탈(건)'] / table_data['총렌탈(건)'] * 100).round(1)
+                    table_data['재렌탈(%)'] = (table_data['재렌탈(건)'] / table_data['총렌탈(건)'] * 100).round(1)
+                    table_data['비중(%)'] = (table_data['총렌탈(건)'] / total_sum * 100).round(1)
+                    
+                    # 열합계 행 추가
+                    sum_row = pd.DataFrame({
+                        '영업채널': ['합계'],
+                        '렌탈(건)': [table_data['렌탈(건)'].sum()],
+                        '재렌탈(건)': [table_data['재렌탈(건)'].sum()],
+                        '총렌탈(건)': [table_data['총렌탈(건)'].sum()],
+                        '신규(%)': [(table_data['렌탈(건)'].sum() / table_data['총렌탈(건)'].sum() * 100)],
+                        '재렌탈(%)': [(table_data['재렌탈(건)'].sum() / table_data['총렌탈(건)'].sum() * 100)],
+                        '비중(%)': [100.0]
+                    })
+                    
+                    table_data = pd.concat([table_data, sum_row], ignore_index=True)
+                    
+                    # 표 표시
+                    st.dataframe(
+                        table_data.style.format({
+                            '렌탈(건)': '{:,.0f}',
+                            '재렌탈(건)': '{:,.0f}',
+                            '총렌탈(건)': '{:,.0f}',
+                            '신규(%)': '{:.1f}%',
+                            '재렌탈(%)': '{:.1f}%',
+                            '비중(%)': '{:.1f}%'
+                        }),
+                        use_container_width=True,
+                        height=500
+                    )
             else:
                 st.warning("선택한 필터 조건에 해당하는 데이터가 없습니다.")
 
             st.markdown("---")
             
             # ========== Section 6: 상세 데이터 테이블 ==========
-            st.markdown("## [목록] 상세 데이터")
+            st.markdown("## 📋 상세 데이터")
             
             if not filtered_df.empty:
                 # 표시할 컬럼 선택
@@ -699,7 +742,7 @@ if uploaded_file is not None:
                 # CSV 다운로드
                 csv = filtered_df_sorted[display_columns].to_csv(index=False, encoding='utf-8-sig')
                 st.download_button(
-                    label="[다운로드] 필터링된 데이터 다운로드 (CSV)",
+                    label="⬇️ 필터링된 데이터 다운로드 (CSV)",
                     data=csv,
                     file_name=f"영업실적_필터링_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
@@ -711,18 +754,18 @@ if uploaded_file is not None:
                 re_rental_sum = filtered_df['재렌탈(건)'].sum()
                 
                 st.info(
-                    f"[차트] 필터링된 데이터: 총 {len(filtered_df):,}건 | 총 렌탈: {int(total_rental_sum):,}건 | 신규: {int(new_rental_sum):,}건 | 재렌탈: {int(re_rental_sum):,}건")
+                    f"📊 필터링된 데이터: 총 {len(filtered_df):,}건 | 총 렌탈: {int(total_rental_sum):,}건 | 신규: {int(new_rental_sum):,}건 | 재렌탈: {int(re_rental_sum):,}건")
             else:
                 st.warning("표시할 데이터가 없습니다.")
             
             st.markdown("---")
 
         except Exception as e:
-            st.error(f"[오류] 오류 발생: {str(e)}")
+            st.error(f"❌ 오류 발생: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 else:
-    st.info("[위로] 파일 1을 선택하거나 업로드하여 시작하세요.")
+    st.info("👆 파일 1을 선택하거나 업로드하여 시작하세요.")
 
 
 # ========================================
@@ -731,7 +774,7 @@ else:
 if uploaded_file2 is not None:
     st.markdown("---")
     st.markdown("---")
-    st.markdown("# [달력] 약정기간 & 리스구분 & 비용구분 분석 (파일2)")
+    st.markdown("# 📅 약정기간 & 리스구분 & 비용구분 분석 (파일2)")
     st.markdown("---")
     
     # 파일 읽기
@@ -753,10 +796,10 @@ if uploaded_file2 is not None:
                     missing_cols.append(required_col)
             
             if missing_cols:
-                st.error(f"[오류] 파일2에 필수 컬럼이 없습니다: {', '.join(missing_cols)}")
+                st.error(f"❌ 파일2에 필수 컬럼이 없습니다: {', '.join(missing_cols)}")
                 st.stop()
             
-            st.success("[성공] 모든 필수 컬럼이 확인되었습니다!")
+            st.success("✅ 모든 필수 컬럼이 확인되었습니다!")
             
             # 데이터 전처리
             df2['연도'] = df2['연도'].astype(str).str.replace('년', '').str.strip()
@@ -766,7 +809,7 @@ if uploaded_file2 is not None:
             # NaN 체크
             nan_count = df2['월_숫자'].isna().sum()
             if nan_count > 0:
-                st.warning(f"[경고] 월 데이터 변환 중 {nan_count}개 행 제외됨")
+                st.warning(f"⚠️ 월 데이터 변환 중 {nan_count}개 행 제외됨")
             
             df2 = df2.dropna(subset=['월_숫자'])
             df2['월_숫자'] = df2['월_숫자'].astype(int)
@@ -782,7 +825,7 @@ if uploaded_file2 is not None:
             
             # 사이드바 필터 (파일2용)
             st.sidebar.markdown("---")
-            st.sidebar.header("[검색] 필터 설정 (파일2)")
+            st.sidebar.header("🔍 필터 설정 (파일2)")
             
             # 연도 필터
             years_f2 = sorted(df2['연도'].unique())
@@ -811,9 +854,9 @@ if uploaded_file2 is not None:
                 key="product1_f2"
             )
             
-            # *** 1. 제품명 검색 필터 추가 ***
+            # 제품명 검색 필터 추가
             st.sidebar.markdown("---")
-            st.sidebar.subheader("[검색] 제품명 검색")
+            st.sidebar.subheader("🔍 제품명 검색")
             
             # 검색어 입력
             search_query = st.sidebar.text_input(
@@ -827,7 +870,7 @@ if uploaded_file2 is not None:
             if search_query:
                 matching_products = sorted([p for p in df2['제품명'].unique() if search_query.lower() in str(p).lower()])
                 if matching_products:
-                    st.sidebar.success(f"[검색] {len(matching_products)}개 제품 발견")
+                    st.sidebar.success(f"🔍 {len(matching_products)}개 제품 발견")
                     selected_products_f2 = st.sidebar.multiselect(
                         "제품명 선택",
                         matching_products,
@@ -835,7 +878,7 @@ if uploaded_file2 is not None:
                         key="selected_products_f2"
                     )
                 else:
-                    st.sidebar.warning("[경고] 일치하는 제품이 없습니다.")
+                    st.sidebar.warning("⚠️ 일치하는 제품이 없습니다.")
                     selected_products_f2 = []
             else:
                 # 검색어가 없으면 전체 선택
@@ -850,38 +893,64 @@ if uploaded_file2 is not None:
             ].copy()
             
             if filtered_df2.empty:
-                st.warning("[경고] 선택한 필터 조건에 해당하는 데이터가 없습니다.")
+                st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
             else:
-                # *** 2. 약정기간별 분석과 리스구분별 분석 섹션 삭제 ***
-                # *** 3. 금융리스 x 약정기간 크로스 분석 추가 ***
-                
-                st.markdown("## [차트] 리스구분 × 약정기간 크로스 분석")
+                # ========== 리스구분 × 약정기간 크로스 분석 (수정됨) ==========
+                st.markdown("## 📊 리스구분 × 약정기간 크로스 분석")
                 
                 col1, col2 = st.columns([1.2, 0.8])
                 
                 with col1:
+                    # 구분 필터 추가
+                    st.markdown("#### 📌 필터 옵션")
+                    
+                    # 리스구분 필터
+                    lease_types = sorted(filtered_df2['리스구분'].unique())
+                    selected_lease = st.multiselect(
+                        "리스구분 선택",
+                        lease_types,
+                        default=lease_types,
+                        key="lease_filter"
+                    )
+                    
+                    # 약정기간 필터
+                    contract_periods = sorted(filtered_df2['약정기간'].unique())
+                    selected_periods = st.multiselect(
+                        "약정기간 선택",
+                        contract_periods,
+                        default=contract_periods,
+                        key="period_filter"
+                    )
+                    
+                    # 필터링된 데이터
+                    filtered_cross = filtered_df2[
+                        (filtered_df2['리스구분'].isin(selected_lease)) &
+                        (filtered_df2['약정기간'].isin(selected_periods))
+                    ]
+                    
                     # 월별 리스구분 x 약정기간 크로스 데이터
-                    cross_monthly = filtered_df2.groupby(['월_숫자', '리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
+                    cross_monthly = filtered_cross.groupby(['월_숫자', '리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
                     cross_monthly = cross_monthly[cross_monthly['총렌탈(건)'] > 0]
                     
                     if not cross_monthly.empty:
                         # 리스구분+약정기간 조합 컬럼 생성
                         cross_monthly['구분'] = cross_monthly['리스구분'] + ' - ' + cross_monthly['약정기간']
                         
+                        # 세로 누적 막대 그래프
                         fig_cross = px.bar(
                             cross_monthly,
                             x='월_숫자',
                             y='총렌탈(건)',
                             color='구분',
-                            title="월별 리스구분 × 약정기간 실적",
+                            title="월별 리스구분 × 약정기간 실적 (누적)",
                             labels={'월_숫자': '월', '총렌탈(건)': '총렌탈 건수'},
                             text='총렌탈(건)',
-                            height=500,
-                            barmode='group'
+                            height=550,
+                            barmode='stack'  # 누적 모드
                         )
                         fig_cross.update_traces(
                             texttemplate='%{text:,.0f}',
-                            textposition='outside'
+                            textposition='inside'
                         )
                         fig_cross.update_layout(
                             xaxis_type='category',
@@ -893,8 +962,8 @@ if uploaded_file2 is not None:
                         st.warning("크로스 데이터가 없습니다.")
                 
                 with col2:
-                    # 크로스 테이블 (리스구분 x 약정기간)
-                    cross_table = filtered_df2.groupby(['리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
+                    # 크로스 테이블 (리스구분 x 약정기간) - 백분율 포함
+                    cross_table = filtered_cross.groupby(['리스구분', '약정기간'], as_index=False)['총렌탈(건)'].sum()
                     
                     if not cross_table.empty:
                         # 피벗 테이블 생성
@@ -913,21 +982,32 @@ if uploaded_file2 is not None:
                         pivot_table.loc['열합계'] = pivot_table.sum()
                         
                         # 정수형으로 변환
-                        pivot_table = pivot_table.astype(int)
+                        pivot_table_count = pivot_table.astype(int)
                         
-                        st.markdown("#### [목록] 리스구분 × 약정기간 집계표")
+                        # 백분율 테이블 생성
+                        total_sum = pivot_table.loc['열합계', '행합계']
+                        pivot_table_pct = (pivot_table / total_sum * 100).round(1)
+                        
+                        st.markdown("#### 📋 집계표 (건수)")
                         st.dataframe(
-                            pivot_table.style.format("{:,}"),
+                            pivot_table_count.style.format("{:,}"),
                             use_container_width=True,
-                            height=400
+                            height=250
+                        )
+                        
+                        st.markdown("#### 📊 집계표 (비중 %)")
+                        st.dataframe(
+                            pivot_table_pct.style.format("{:.1f}%"),
+                            use_container_width=True,
+                            height=250
                         )
                     else:
                         st.warning("크로스 테이블 데이터가 없습니다.")
                 
                 st.markdown("---")
                 
-                # *** 4. 비용구분별 분석 수정 ***
-                st.markdown("## [비용] 비용구분별 분석")
+                # ========== 비용구분별 분석 ==========
+                st.markdown("## 💰 비용구분별 분석")
                 
                 col1, col2 = st.columns([1, 1])
                 
@@ -959,7 +1039,7 @@ if uploaded_file2 is not None:
                 with col2:
                     # 비용구분별 실적 테이블 (행합계, 열합계, 비중 포함)
                     if not cost_total.empty:
-                        st.markdown("#### [목록] 비용구분별 실적 비중표")
+                        st.markdown("#### 📋 비용구분별 실적 비중표")
                         
                         # 테이블 생성
                         cost_display = cost_total[['비용구분', '총렌탈(건)', '비중(%)']].copy()
@@ -987,7 +1067,7 @@ if uploaded_file2 is not None:
                 st.markdown("---")
                 
                 # ========== 상세 데이터 테이블 ==========
-                st.markdown("## [목록] 상세 데이터 (파일2)")
+                st.markdown("## 📋 상세 데이터 (파일2)")
                 
                 if not filtered_df2.empty:
                     display_columns_f2 = ['연도', '월', '제품계층구조1', '제품계층구조2', '제품명',
@@ -1007,7 +1087,7 @@ if uploaded_file2 is not None:
                     # CSV 다운로드
                     csv2 = filtered_df2_sorted[display_columns_f2].to_csv(index=False, encoding='utf-8-sig')
                     st.download_button(
-                        label="[다운로드] 필터링된 데이터 다운로드 (CSV)",
+                        label="⬇️ 필터링된 데이터 다운로드 (CSV)",
                         data=csv2,
                         file_name=f"약정기간_리스구분_필터링_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv",
@@ -1017,16 +1097,16 @@ if uploaded_file2 is not None:
                     st.warning("표시할 데이터가 없습니다.")
             
         except Exception as e:
-            st.error(f"[오류] 오류 발생: {str(e)}")
+            st.error(f"❌ 오류 발생: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 else:
-    st.info("[위로] 파일 2를 선택하거나 업로드하여 약정기간/리스구분 분석을 시작하세요.")
+    st.info("👆 파일 2를 선택하거나 업로드하여 약정기간/리스구분 분석을 시작하세요.")
 
 # 푸터
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: gray; padding: 20px;'>
-    <p>[차트] 2025 영업 실적 대시보드 | Powered by Streamlit</p>
+    <p>📊 2025 영업 실적 대시보드 | Powered by Streamlit</p>
 </div>
 """, unsafe_allow_html=True)
