@@ -10,18 +10,18 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
     """파일을 로드하고 컬럼명을 정리하여 반환"""
     try:
         if uploaded_file is None:
-            st.warning(f⚠️ {file_label}이 업로드되지 않았습니다.")
+            st.warning(f"[경고] {file_label}이 업로드되지 않았습니다.")
             return pd.DataFrame()
         
         # 파일 이름 확인
-        st.info(f"🔍 {file_label} 파일명: {uploaded_file.name if hasattr(uploaded_file, 'name') else '기본 파일'}")
+        st.info(f"[검색] {file_label} 파일명: {uploaded_file.name if hasattr(uploaded_file, 'name') else '기본 파일'}")
         
         # 파일 포인터를 처음으로 이동
         try:
             if hasattr(uploaded_file, 'seek'):
                 uploaded_file.seek(0)
         except Exception as seek_error:
-            st.warning(f"⚠️ 파일 포인터 이동 실패: {str(seek_error)}")
+            st.warning(f"[경고] 파일 포인터 이동 실패: {str(seek_error)}")
         
         # 파일 읽기
         df = None
@@ -31,40 +31,40 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
             # CSV 파일 처리
             try:
                 df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
-                st.success(f"✅ {file_label} CSV 파일 읽기 성공 (utf-8-sig)")
+                st.success(f"[성공] {file_label} CSV 파일 읽기 성공 (utf-8-sig)")
             except UnicodeDecodeError:
                 try:
                     if hasattr(uploaded_file, 'seek'):
                         uploaded_file.seek(0)
                     df = pd.read_csv(uploaded_file, encoding='cp949')
-                    st.success(f"✅ {file_label} CSV 파일 읽기 성공 (cp949)")
+                    st.success(f"[성공] {file_label} CSV 파일 읽기 성공 (cp949)")
                 except Exception as e:
-                    st.error(f"❌ {file_label} CSV 읽기 실패: {str(e)}")
+                    st.error(f"[오류] {file_label} CSV 읽기 실패: {str(e)}")
                     return pd.DataFrame()
             except Exception as e:
-                st.error(f"❌ {file_label} CSV 읽기 중 오류: {str(e)}")
+                st.error(f"[오류] {file_label} CSV 읽기 중 오류: {str(e)}")
                 return pd.DataFrame()
         else:
             # Excel 파일 처리
             try:
                 df = pd.read_excel(uploaded_file, engine='openpyxl')
-                st.success(f"✅ {file_label} Excel 파일 읽기 성공")
+                st.success(f"[성공] {file_label} Excel 파일 읽기 성공")
             except Exception as e:
-                st.error(f"❌ {file_label} Excel 읽기 실패: {str(e)}")
+                st.error(f"[오류] {file_label} Excel 읽기 실패: {str(e)}")
                 return pd.DataFrame()
         
         # DataFrame이 비어있는지 확인
         if df is None or df.empty:
-            st.error(f"❌ {file_label} 파일이 비어있거나 읽을 수 없습니다.")
+            st.error(f"[오류] {file_label} 파일이 비어있거나 읽을 수 없습니다.")
             return pd.DataFrame()
         
         # 컬럼명 정리: 공백, 줄바꿈, 특수문자 제거
         df.columns = df.columns.astype(str).str.strip().str.replace('\n', '').str.replace('\r', '')
         
-        st.success(f"✅ {file_label} 로드 성공: {len(df)}행 × {len(df.columns)}열")
+        st.success(f"[성공] {file_label} 로드 성공: {len(df)}행 × {len(df.columns)}열")
         
         # 디버깅 정보 표시
-        with st.expander(f"🔍 {file_label} 컬럼 및 데이터 미리보기"):
+        with st.expander(f"[검색] {file_label} 컬럼 및 데이터 미리보기"):
             st.write("**컬럼 목록:**")
             for idx, col in enumerate(df.columns, 1):
                 st.write(f"{idx}. `{col}` (길이: {len(col)}자, repr: {repr(col)})")
@@ -74,7 +74,7 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
         return df
     
     except Exception as e:
-        st.error(f"❌ {file_label} 로드 중 예상치 못한 오류: {str(e)}")
+        st.error(f"[오류] {file_label} 로드 중 예상치 못한 오류: {str(e)}")
         import traceback
         st.code(traceback.format_exc())
         return pd.DataFrame()
@@ -83,13 +83,13 @@ def load_and_clean_dataframe(uploaded_file, file_label="파일"):
 # 페이지 설정
 st.set_page_config(
     page_title="2025 영업 실적 대시보드",
-    page_icon="📊",
+    page_icon="[차트]",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # 타이틀
-st.title("📊 2025년 영업 실적 분석 대시보드")
+st.title("[차트] 2025년 영업 실적 분석 대시보드")
 st.markdown("---")
 
 # 기본 파일 경로 설정
@@ -97,14 +97,14 @@ DEFAULT_FILE1 = "data/2025년_영업실적.xlsx"
 DEFAULT_FILE2 = "data/2025년_비용약정2.csv"
 
 # 파일 업로드 섹션
-st.markdown("### 📁 데이터 파일 설정")
+st.markdown("### [파일] 데이터 파일 설정")
 
 # 기본 파일 존재 여부 확인
 file1_exists = os.path.exists(DEFAULT_FILE1)
 file2_exists = os.path.exists(DEFAULT_FILE2)
 
 if file1_exists or file2_exists:
-    st.success("✅ 기본 데이터 파일이 감지되었습니다. 바로 대시보드를 사용할 수 있습니다!")
+    st.success("[성공] 기본 데이터 파일이 감지되었습니다. 바로 대시보드를 사용할 수 있습니다!")
     
 col_upload1, col_upload2 = st.columns(2)
 
@@ -224,7 +224,7 @@ if uploaded_file is not None:
                 df_renamed[col] = pd.to_numeric(df_renamed[col], errors='coerce').fillna(0)
             
             # 사이드바 필터
-            st.sidebar.header("🔍 필터 설정 (파일1)")
+            st.sidebar.header("[검색] 필터 설정 (파일1)")
             
             # 연도 필터
             years = sorted(df_renamed['연도'].unique())
@@ -278,10 +278,10 @@ if uploaded_file is not None:
                 prev_month_df = pd.DataFrame()
 
             # ========== Section 1: 핵심 KPI 메트릭 ==========
-            st.markdown("## 📈 핵심 성과 지표 (KPI)")
+            st.markdown("## [상승] 핵심 성과 지표 (KPI)")
 
             if filtered_df.empty:
-                st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
+                st.warning("[경고] 선택한 필터 조건에 해당하는 데이터가 없습니다.")
             else:
                 col1, col2, col3, col4 = st.columns(4)
 
@@ -342,7 +342,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 2: 월별 추이 분석 ==========
-            st.markdown("## 📊 월별 실적 추이")
+            st.markdown("## [차트] 월별 실적 추이")
 
             col1, col2 = st.columns(2)
 
@@ -449,7 +449,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 3: 채널별 심층 분석 ==========
-            st.markdown("## 🎯 영업채널별 분석")
+            st.markdown("## [타겟] 영업채널별 분석")
 
             col1, col2 = st.columns(2)
 
@@ -527,7 +527,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 4: 제품 분석 ==========
-            st.markdown("## 🏆 제품별 분석")
+            st.markdown("## [상위] 제품별 분석")
 
             col1, col2 = st.columns(2)
 
@@ -611,7 +611,7 @@ if uploaded_file is not None:
             st.markdown("---")
 
             # ========== Section 5: 영업채널별 렌탈 유형 비중 ==========
-            st.markdown("## 🔄 영업채널별 렌탈 유형 분석")
+            st.markdown("## [순환] 영업채널별 렌탈 유형 분석")
 
             channel_type = filtered_df.groupby('영업채널', as_index=False).agg({
                 '총렌탈(건)': 'sum',
@@ -676,7 +676,7 @@ if uploaded_file is not None:
             st.markdown("---")
             
             # ========== Section 6: 상세 데이터 테이블 ==========
-            st.markdown("## 📋 상세 데이터")
+            st.markdown("## [목록] 상세 데이터")
             
             if not filtered_df.empty:
                 # 표시할 컬럼 선택
@@ -699,7 +699,7 @@ if uploaded_file is not None:
                 # CSV 다운로드
                 csv = filtered_df_sorted[display_columns].to_csv(index=False, encoding='utf-8-sig')
                 st.download_button(
-                    label="📥 필터링된 데이터 다운로드 (CSV)",
+                    label="[다운로드] 필터링된 데이터 다운로드 (CSV)",
                     data=csv,
                     file_name=f"영업실적_필터링_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
@@ -711,18 +711,18 @@ if uploaded_file is not None:
                 re_rental_sum = filtered_df['재렌탈(건)'].sum()
                 
                 st.info(
-                    f"📊 필터링된 데이터: 총 {len(filtered_df):,}건 | 총 렌탈: {int(total_rental_sum):,}건 | 신규: {int(new_rental_sum):,}건 | 재렌탈: {int(re_rental_sum):,}건")
+                    f"[차트] 필터링된 데이터: 총 {len(filtered_df):,}건 | 총 렌탈: {int(total_rental_sum):,}건 | 신규: {int(new_rental_sum):,}건 | 재렌탈: {int(re_rental_sum):,}건")
             else:
                 st.warning("표시할 데이터가 없습니다.")
             
             st.markdown("---")
 
         except Exception as e:
-            st.error(f"❌ 오류 발생: {str(e)}")
+            st.error(f"[오류] 오류 발생: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 else:
-    st.info("👆 파일 1을 선택하거나 업로드하여 시작하세요.")
+    st.info("[위로] 파일 1을 선택하거나 업로드하여 시작하세요.")
 
 
 # ========================================
@@ -731,7 +731,7 @@ else:
 if uploaded_file2 is not None:
     st.markdown("---")
     st.markdown("---")
-    st.markdown("# 📅 약정기간 & 리스구분 & 비용구분 분석 (파일2)")
+    st.markdown("# [달력] 약정기간 & 리스구분 & 비용구분 분석 (파일2)")
     st.markdown("---")
     
     # 파일 읽기
@@ -753,10 +753,10 @@ if uploaded_file2 is not None:
                     missing_cols.append(required_col)
             
             if missing_cols:
-                st.error(f"❌ 파일2에 필수 컬럼이 없습니다: {', '.join(missing_cols)}")
+                st.error(f"[오류] 파일2에 필수 컬럼이 없습니다: {', '.join(missing_cols)}")
                 st.stop()
             
-            st.success("✅ 모든 필수 컬럼이 확인되었습니다!")
+            st.success("[성공] 모든 필수 컬럼이 확인되었습니다!")
             
             # 데이터 전처리
             df2['연도'] = df2['연도'].astype(str).str.replace('년', '').str.strip()
@@ -766,7 +766,7 @@ if uploaded_file2 is not None:
             # NaN 체크
             nan_count = df2['월_숫자'].isna().sum()
             if nan_count > 0:
-                st.warning(f"⚠️ 월 데이터 변환 중 {nan_count}개 행 제외됨")
+                st.warning(f"[경고] 월 데이터 변환 중 {nan_count}개 행 제외됨")
             
             df2 = df2.dropna(subset=['월_숫자'])
             df2['월_숫자'] = df2['월_숫자'].astype(int)
@@ -782,7 +782,7 @@ if uploaded_file2 is not None:
             
             # 사이드바 필터 (파일2용)
             st.sidebar.markdown("---")
-            st.sidebar.header("🔍 필터 설정 (파일2)")
+            st.sidebar.header("[검색] 필터 설정 (파일2)")
             
             # 연도 필터
             years_f2 = sorted(df2['연도'].unique())
@@ -813,7 +813,7 @@ if uploaded_file2 is not None:
             
             # *** 1. 제품명 검색 필터 추가 ***
             st.sidebar.markdown("---")
-            st.sidebar.subheader("🔎 제품명 검색")
+            st.sidebar.subheader("[검색] 제품명 검색")
             
             # 검색어 입력
             search_query = st.sidebar.text_input(
@@ -827,7 +827,7 @@ if uploaded_file2 is not None:
             if search_query:
                 matching_products = sorted([p for p in df2['제품명'].unique() if search_query.lower() in str(p).lower()])
                 if matching_products:
-                    st.sidebar.success(f"🔍 {len(matching_products)}개 제품 발견")
+                    st.sidebar.success(f"[검색] {len(matching_products)}개 제품 발견")
                     selected_products_f2 = st.sidebar.multiselect(
                         "제품명 선택",
                         matching_products,
@@ -835,7 +835,7 @@ if uploaded_file2 is not None:
                         key="selected_products_f2"
                     )
                 else:
-                    st.sidebar.warning("⚠️ 일치하는 제품이 없습니다.")
+                    st.sidebar.warning("[경고] 일치하는 제품이 없습니다.")
                     selected_products_f2 = []
             else:
                 # 검색어가 없으면 전체 선택
@@ -850,12 +850,12 @@ if uploaded_file2 is not None:
             ].copy()
             
             if filtered_df2.empty:
-                st.warning("⚠️ 선택한 필터 조건에 해당하는 데이터가 없습니다.")
+                st.warning("[경고] 선택한 필터 조건에 해당하는 데이터가 없습니다.")
             else:
                 # *** 2. 약정기간별 분석과 리스구분별 분석 섹션 삭제 ***
                 # *** 3. 금융리스 x 약정기간 크로스 분석 추가 ***
                 
-                st.markdown("## 📊 리스구분 × 약정기간 크로스 분석")
+                st.markdown("## [차트] 리스구분 × 약정기간 크로스 분석")
                 
                 col1, col2 = st.columns([1.2, 0.8])
                 
@@ -915,7 +915,7 @@ if uploaded_file2 is not None:
                         # 정수형으로 변환
                         pivot_table = pivot_table.astype(int)
                         
-                        st.markdown("#### 📋 리스구분 × 약정기간 집계표")
+                        st.markdown("#### [목록] 리스구분 × 약정기간 집계표")
                         st.dataframe(
                             pivot_table.style.format("{:,}"),
                             use_container_width=True,
@@ -927,7 +927,7 @@ if uploaded_file2 is not None:
                 st.markdown("---")
                 
                 # *** 4. 비용구분별 분석 수정 ***
-                st.markdown("## 💰 비용구분별 분석")
+                st.markdown("## [비용] 비용구분별 분석")
                 
                 col1, col2 = st.columns([1, 1])
                 
@@ -959,7 +959,7 @@ if uploaded_file2 is not None:
                 with col2:
                     # 비용구분별 실적 테이블 (행합계, 열합계, 비중 포함)
                     if not cost_total.empty:
-                        st.markdown("#### 📋 비용구분별 실적 비중표")
+                        st.markdown("#### [목록] 비용구분별 실적 비중표")
                         
                         # 테이블 생성
                         cost_display = cost_total[['비용구분', '총렌탈(건)', '비중(%)']].copy()
@@ -987,7 +987,7 @@ if uploaded_file2 is not None:
                 st.markdown("---")
                 
                 # ========== 상세 데이터 테이블 ==========
-                st.markdown("## 📋 상세 데이터 (파일2)")
+                st.markdown("## [목록] 상세 데이터 (파일2)")
                 
                 if not filtered_df2.empty:
                     display_columns_f2 = ['연도', '월', '제품계층구조1', '제품계층구조2', '제품명',
@@ -1007,7 +1007,7 @@ if uploaded_file2 is not None:
                     # CSV 다운로드
                     csv2 = filtered_df2_sorted[display_columns_f2].to_csv(index=False, encoding='utf-8-sig')
                     st.download_button(
-                        label="📥 필터링된 데이터 다운로드 (CSV)",
+                        label="[다운로드] 필터링된 데이터 다운로드 (CSV)",
                         data=csv2,
                         file_name=f"약정기간_리스구분_필터링_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv",
@@ -1017,16 +1017,16 @@ if uploaded_file2 is not None:
                     st.warning("표시할 데이터가 없습니다.")
             
         except Exception as e:
-            st.error(f"❌ 오류 발생: {str(e)}")
+            st.error(f"[오류] 오류 발생: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 else:
-    st.info("👆 파일 2를 선택하거나 업로드하여 약정기간/리스구분 분석을 시작하세요.")
+    st.info("[위로] 파일 2를 선택하거나 업로드하여 약정기간/리스구분 분석을 시작하세요.")
 
 # 푸터
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: gray; padding: 20px;'>
-    <p>📊 2025 영업 실적 대시보드 | Powered by Streamlit</p>
+    <p>[차트] 2025 영업 실적 대시보드 | Powered by Streamlit</p>
 </div>
 """, unsafe_allow_html=True)
