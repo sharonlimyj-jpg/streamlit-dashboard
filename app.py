@@ -505,46 +505,41 @@ st.set_page_config(
 )
 
 # 타이틀 및 매뉴얼 버튼
+# 507-548번째 줄을 아래 코드로 교체
 col_title, col_manual = st.columns([6, 1])
 
 with col_title:
     st.title("📊 2025년 영업 실적 분석 대시보드")
 
 with col_manual:
-    # Base64로 인코딩된 HTML을 data URI로 변환
-    manual_html_encoded = base64.b64encode(MANUAL_HTML.encode('utf-8')).decode('utf-8')
-    
-    st.markdown(f"""
-    <div style="text-align: right; padding-top: 20px;">
-        <button onclick="openManual()" style="
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        "
-        onmouseover="this.style.backgroundColor='#45a049'; this.style.transform='scale(1.05)';"
-        onmouseout="this.style.backgroundColor='#4CAF50'; this.style.transform='scale(1)';">
-             📖 매뉴얼
-        </button>
+    st.markdown("""
+    <style>
+    .manual-button {
+        display: inline-block;
+        background-color: #4CAF50;
+        color: white !important;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        font-size: 16px;
+        margin-top: 20px;
+        cursor: pointer;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    .manual-button:hover {
+        background-color: #45a049;
+        transform: scale(1.05);
+    }
+    </style>
+    <div style="text-align: right;">
+        <a class="manual-button" href="https://sharonlimyj-jpg.github.io/streamlit-dashboard/dashboard_manual.html" target="_blank">
+            📖 매뉴얼
+        </a>
     </div>
-    <script>
-        function openManual() {{
-            // GitHub raw content에서 매뉴얼 열기
-            window.open('https://raw.githubusercontent.com/sharonlimyj-jpg/streamlit-dashboard/main/dashboard_manual.html', 
-                       '_blank', 
-                       'width=1200,height=800,scrollbars=yes,resizable=yes');
-          }}
-    </script>
     """, unsafe_allow_html=True)
+
 
 st.markdown("---")
 
